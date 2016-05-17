@@ -1,0 +1,45 @@
+<html>
+<head>
+<title><%=path%></title>
+<% include head.ejs %>
+</head>
+<body>
+<% include header.ejs %>
+<ul>
+<% for (var n in files) { %>
+  <li class="<%=util.iconClass(path + n)%>"><a href="<%=files[n]%>"><%=n%></a><% if (n in HELP) {%>
+    <span class="note">(<%=HELP[n]%>)</span>
+  <% } %></li>
+<% } %>
+</ul>
+
+<% if (Object.keys(hidden).length) { %>
+<div>
+<input id="advanced" class="disclose" type="checkbox">
+<label for="advanced">Show Advanced</label>
+<ul>
+<% for (var n in hidden) { %>
+  <li class="<%=util.iconClass(path + n)%>"><a href="<%=hidden[n]%>"><%=n%></a></li>
+<% } %>
+</ul>
+</div>
+<% } %>
+
+<% for (var k in buttons) { %>
+   <form action="<%=buttons[k]%>" method="post">
+     <input type="submit" value="<%=k%>" />
+   </form>
+<% } %>
+
+<form action="/g/<%=project%>/create/<%=path%>" method="post">
+  <input type="text" name="file"<% if (locals.default_filename) { %> value="<%=default_filename%>"<% } %> />
+  <input type="submit" value="New File" />
+</form>
+
+<form action="/g/<%=project%>/mkdir/<%=path%>" method="post">
+  <input type="text" name="name" />
+  <input type="submit" value="New Folder" />
+</form>
+
+</body>
+</html>

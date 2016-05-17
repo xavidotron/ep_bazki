@@ -1,0 +1,27 @@
+<html>
+<head>
+<title>Users</title>
+<% include head.ejs %>
+</head>
+<body>
+<% locals.title = "Users" %>
+<% include header.ejs %>
+
+<% if (locals.message) { %>
+   <h2><%=message%></h2>
+<% } %>
+
+<ul>
+<% for (var i = 0; i < users.length; ++i) { %>
+  <li><%=users[i]%></li>
+<% } %>
+</ul>
+
+<form action="" method="post">
+  <input type="text" name="name" />
+  <input type="password" name="password" />
+  <input type="submit" value="Add User" />
+</form>
+
+</body>
+</html>

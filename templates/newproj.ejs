@@ -1,0 +1,20 @@
+<html>
+<head>
+<title>New Project</title>
+</head>
+<body>
+<h1>New Project</h1>
+
+<% if (locals.message) { %>
+   <h2><%=message%></h2>
+<% } %>
+
+<form method="post" action="">
+<label>Project Identifier: <input type="text" name="project" /> (should not contain spaces or symbols)</label><br />
+<label>Admin Username: <input type="text" name="username" /></label><br />
+<label>Password: <input type="password" name="password" /></label><br />
+<input type="submit" value="Create" />
+</form>
+
+</body>
+</html>

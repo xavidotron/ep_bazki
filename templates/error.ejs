@@ -1,0 +1,30 @@
+<html>
+<head>
+<title><%=path%></title>
+<% include head.ejs %>
+</head>
+<body>
+<% if (!suppress_header) { %>
+  <% include header.ejs %>
+<% } %>
+
+<h2>Error <%=error.code%> running <%=error.cmd%></h2>
+
+<form action="" method="post">
+  <input type="submit" value="Retry" />
+</form>
+
+<pre>
+<%=stdout%>
+</pre>
+
+<% if (log) { %>
+<input id="log" class="disclose" type="checkbox">
+<label for="log">Show Log</label>
+<pre>
+<%=log%>
+</pre>
+<% } %>
+
+</body>
+</html>

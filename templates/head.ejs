@@ -1,0 +1,189 @@
+<style type="text/css">
+body > div.wrapper {
+  height: 100%;
+}
+div.wrapper {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+div.horiz {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+div.horiz h1, div.horiz form {
+  display: inline-block;
+  margin: 0;
+  vertical-align: middle;
+}
+div.stretch {
+  display: flex;
+  flex: 1;
+}
+
+h1,h2 { margin: 0 }
+
+iframe {
+  flex: 1;
+  box-sizing: border-box;
+}
+
+td, th {
+  padding: 2px;
+  background-color: lightgrey;
+  text-align: center;
+}
+*[contenteditable] {
+  border: 2px inset;
+  background-color: white;
+  font-family: monospace;
+  white-space: pre-wrap;
+  text-align: left;
+}
+th[colspan="10"] {
+  background-color: white;
+  text-align: left;
+  padding-top: 10px;
+}
+td.suppressed, th.suppressed {
+  visibility: hidden;
+}
+
+th h2, th form {
+  display: inline-block;
+}
+td form {
+  display: inline;
+}
+
+#metadata > div {
+  padding: 2px;
+}
+
+a.quiet {
+  text-decoration: none;
+}
+
+input.disclose {
+  display: none;
+}
+input.disclose + label {
+  display: block;
+  margin-bottom: 1em;
+  -webkit-user-select: none;
+  user-select: none;
+}
+input.disclose:checked + label {
+  margin-bottom: 0;
+}
+input.disclose + label, input.disclose + h2 > label {
+  cursor: pointer;
+}
+input.disclose + h2 > label > span {
+  display: none;
+}
+input.disclose:checked + h2 > label > span {
+  display: inline;
+}
+input.disclose + label:before, input.disclose + h2 > label:before {
+  content: '▸ ';
+}
+input.disclose:checked + label:before, input.disclose:checked + h2 > label:before {
+  content: '▾ ';
+}
+input.disclose + * + * {
+  display: none;
+}
+input.disclose:checked + * + * {
+  display: block;
+}
+
+.tabber input {
+  display: none;
+}
+.tabber input + label {
+  display: inline-block;
+  border: thin solid black;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: pointer;
+  height: 20px;
+  margin-left: 5px;
+  padding: 0 5px;
+  position: relative;
+  z-index: 1;
+  background: lightgrey;
+}
+.tabber input + label + div {
+  display: none;
+}
+.tabber input:checked + label {
+  background: white;
+  border-bottom: thin solid white;
+}
+.tabber input:checked + label + div {
+  display: block;
+  position: absolute;
+  top: 23px;
+  bottom: 0px;
+  overflow: auto;
+  left: 0px;
+  right: 0px;
+  margin-top: -2px;
+  border: thin solid black;
+}
+.tabber input:checked + label + div > iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.note { color: #666 }
+
+.menu {
+  display: inline-block;
+  vertical-align: top;
+}
+.menu > span {
+  padding: 3px;
+}
+.menu > ul {
+  padding: 0;
+  margin: 0 8px 0 0;
+  text-align: right;
+  position: absolute;
+  right: 0;
+  list-style-type: none;
+  display: none;
+  background: lightgrey;
+  z-index: 1;
+}
+.menu:hover {
+  background: lightgrey;
+}
+.menu:hover > ul {
+  display: block;
+}
+.menu > ul > li {
+  margin: 5px;
+}
+.menu hr {
+  margin: 2px 0;
+  border: none;
+  border-top: thin solid white;
+}
+
+[class^="moon-"]:before, [class*=" moon-"]:before {
+  vertical-align: middle;
+}
+li[class^="moon-"], li[class*=" moon-"] {
+  list-style: none;
+  margin-left: -1.5em;
+}
+li[class^="moon-"]:before, li[class*=" moon-"]:before {
+  margin-right: .5em;
+}
+</style>
+<link rel="stylesheet" href="/s/icomoon/style.css">

@@ -1,0 +1,11 @@
+{
+  "parts": [
+    {
+      "name": "main",
+      "hooks": {
+        "padUpdate": "ep_bazki/svn",
+        "expressCreateServer": "ep_bazki/serve"
+      }
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+<div class="horiz">
+<h1><% if (locals.project) {%><%=project%>: <% } %>
+<% if (locals.title) { %>
+  <%=title%>
+<% } else if (locals.path) { %>
+  <% var pathmatch = path.match(/^(.*\/)?(.+)$/) %>
+  <a href="/g/<%=project%>/e/<%=pathmatch[1]%>">/<%=pathmatch[1]%></a><%=pathmatch[2]%>
+<% } else { %>
+  /
+<% } %>
+</h1>
+<% if (locals.project && locals.path && path[path.length-1] != '/' && !/^Lists\//.exec(path)) { %>
+<span>
+  <% if (!locals.no_file_buttons) { %>
+  <form action="/g/<%=project%>/rename/<%=path%>" method="post">
+    <input type="submit" value="Rename" />
+  </form>
+  <form action="/g/<%=project%>/rm/<%=path%>" method="post" onsubmit="return confirm('Are you sure you want to delete this file?');">
+    <input type="submit" value="Delete" />
+  </form>
+  <% } %>
+  <% if (/\.tex$/.exec(path)) { %>
+    <a href="/g/<%=project%>/prod/<%=path.replace(/\.tex$/, '.pdf')%>" target="_blank">Prod as PDF</a>
+  <% } %>
+  <% if (locals.extra_buttons) { %>
+    <% for (var i = 0; i < locals.extra_buttons.length; ++i) { %>
+      <input type="submit" value="<%=locals.extra_buttons[i].name%>"
+      <% if (locals.extra_buttons[i].onclick) { %>
+        onclick="<%=locals.extra_buttons[i].onclick%>"
+      <% } %>
+      />
+    <% } %>
+  <% } %>
+</span>
+<% } %>
+<% if (locals.project) { %>
+<span>
+<% if (locals.author) { %>
+   Logged in as <%=author%> ·
+<% } %>
+<a href="/g/<%=project%>/logout">Log Out</a>
+<% if (locals.links) { %>
+  <% for (var t in links) { %>
+     · <a href="<%=links[t]%>"><%=t%></a>
+  <% } %>
+<% } %>
+<% if (locals.path && url != '/g/' + project + '/e/' + path) { %>
+   · <a href="/g/<%=project%>/e/<%=path%>">Edit</a>
+<% } %>
+<% if (locals.path != '') { %>
+   · <a href="/g/<%=project%>/e/">Top</a>
+<% } %>
+ · <a href="/g/<%=project%>/status">Status</a>
+ · <a href="/g/<%=project%>/mail">Mail</a>
+
+<div class="menu">
+<span class="moon-wrench"></span>
+<ul>
+<% if (locals.path && !/\/$/.exec(path)) { %>
+  <li><a href="/g/<%=project%>/text/<%=path%>">View as Etherpad Text</a></li>
+  <li><a href="/g/<%=project%>/atext/<%=path%>">View as Atext</a></li>
+  <li><a href="/g/<%=project%>/readfile/<%=path%>">View as in Subversion</a></li>
+  <li><a href="/p/<%=groupid%>$<%=util.path_to_padid(path)%>">Edit as Raw Pad</a></li>
+  <hr>
+<% } %>
+<li><a href="/g/<%=project%>/config">Config</a></li>
+<li><a href="/g/<%=project%>/users">Users</a></li>
+<hr>
+<li><a href="/g/<%=project%>/nuke">Reset from Subversion</a></li>
+<hr>
+<li><a href="/about">About</a></li>
+</ul>
+</div>
+</span>
+<% } %>
+</div>
