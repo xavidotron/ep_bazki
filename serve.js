@@ -160,7 +160,7 @@ exports.startWait = function (res) {
   100% {\
     transform: rotate(359deg);\
   }\
-}</style></head><body qonload="document.body.innerHTML = \'An error occurred.\';"><div><main><span class="moon-settings" style="display:inline-block;font-size:10em;animation:spin 2s infinite linear"></span></main>');
+}</style></head><body onload="document.body.innerHTML = \'An error occurred.\';"><div><main><span class="moon-settings" style="display:inline-block;font-size:10em;animation:spin 2s infinite linear"></span></main>');
   res.is_ticking = true;
 }
 
