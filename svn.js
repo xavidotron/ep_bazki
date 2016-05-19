@@ -22,6 +22,23 @@ function usesTexFormatting(name) {
   return endsWith(name, '.tex') || endsWith(name, '.txt');
 }
 
+var BINARY_SUFFIXES = {
+  '.jpg': true,
+  '.jpeg': true,
+  '.png': true,
+  '.gif': true,
+};
+// Ignore files that are binary or .git-type directories, because making pads
+// for them won't do anything useful and could mangle them.
+function shouldIgnoreFile(file) {
+  var m = /\.\w+$/.exec(file);
+  if ((m && m[0] in BINARY_SUFFIXES) || /\..+\//.exec(file)) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 function setPadDataForPath(project, path, data, author, appendp,
                            force_pad_update, callback) {
   queue().defer(db.get_project_pad, project, path)
@@ -263,7 +280,9 @@ function svn_sync_locked(project, ticker, done) {
           }
           ++cnt;
           var mod = /^(.)    (.+)$/.exec(lines[i]);
-          q.defer(read_and_set_pad, project, mod[2], ticker, false);
+          if (!shouldIgnoreFile(mod[2])) {
+            q.defer(read_and_set_pad, project, mod[2], ticker, false);
+          }
         }
         if (ticker) {
           ticker.set_target(cnt);
@@ -277,19 +296,12 @@ exports.svn_sync = function (project, ticker, done) {
   synchd.fn(project, svn_sync_locked)(project, ticker, done);
 };
 
-var BINARY_SUFFIXES = {
-  '.jpg': true,
-  '.jpeg': true,
-  '.png': true,
-  '.gif': true,
-};
 function svn_read_all_locked(project, ticker, full_reset, done) {
   var checkout = util.get_checkout(project);
   var finder = find(checkout);
   var files = [];
   finder.on('file', function (file, stat) {
-    var m = /\.\w+$/.exec(file);
-    if (m && m[0] in BINARY_SUFFIXES) {
+    if (shouldIgnoreFile(file)) {
       // Ignore it.
     } else if (startsWith(file, checkout)) {
       files.push(file.slice(checkout.length));
