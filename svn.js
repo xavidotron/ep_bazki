@@ -5,6 +5,7 @@ var fs = require('fs');
 var endsWith = require("underscore.string/endsWith");
 var startsWith = require("underscore.string/startsWith");
 var find = require('findit');
+var isBinaryPath = require('is-binary-path');
 
 var Changeset = require("ep_etherpad-lite/static/js/Changeset");
 var AuthorManager = require("ep_etherpad-lite/node/db/AuthorManager");
@@ -22,17 +23,10 @@ function usesTexFormatting(name) {
   return endsWith(name, '.tex') || endsWith(name, '.txt');
 }
 
-var BINARY_SUFFIXES = {
-  '.jpg': true,
-  '.jpeg': true,
-  '.png': true,
-  '.gif': true,
-};
 // Ignore files that are binary or .git-type directories, because making pads
 // for them won't do anything useful and could mangle them.
 function shouldIgnoreFile(file) {
-  var m = /\.\w+$/.exec(file);
-  if ((m && m[0] in BINARY_SUFFIXES) || /\..+\//.exec(file)) {
+  if (isBinaryPath(file) || /\..+\//.exec(file)) {
     return true;
   } else {
     return false;
