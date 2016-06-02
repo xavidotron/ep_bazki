@@ -89,7 +89,7 @@ exports.padUpdate = function (hook_name, context, cb) {
     text = util.taggedCharsToTex(util.atextToTaggedChars(changed_pad));
     var nonascii = text.match(/[^\000-\176]/g);
     if (nonascii) {
-      console.warn("Non ascii characters in", filename, ":", nonascii);
+      //console.warn("Non ascii characters in", filename, ":", nonascii);
     }
   } else {
     text = util.taggedCharsToPlainText(util.atextToTaggedChars(changed_pad));
