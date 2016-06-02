@@ -607,7 +607,7 @@ exports.path_to_padid = function (path) {
   return padid;
 }
 
-var checkouts_root = "/home/etherpad/checkouts/";
+var checkouts_root = "checkouts/";
 
 exports.get_checkout = function (project) {
   return checkouts_root + project + '/';

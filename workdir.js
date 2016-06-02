@@ -1,6 +1,6 @@
 var execFile = require('child_process').execFile;
 
-var workdirs_root = "/home/etherpad/workdirs/";
+var workdirs_root = "workdirs/";
 
 exports.get_path = function (repo) {
   return workdirs_root + repo + '/';
