@@ -237,6 +237,9 @@ exports.mapEntriesFromList = function (project, list, callback) {
         if (map.file) {
           map.path = util.directoryForClass(project,
                                             util.classForList(list)) + map.file;
+          if (!/\.[^/]+$/.exec(map.file)) {
+            map.path += '.tex';
+          }
         }
         maps.push(map);
       };
@@ -254,7 +257,8 @@ exports.mapEntriesFromList = function (project, list, callback) {
               dirset[contents[i]] = true;
             }
             for (var i = 0; i < maps.length; ++i) {
-              if (maps[i].file && maps[i].file in dirset) {
+              if (maps[i].file && (maps[i].file in dirset
+                                   || maps[i].file + '.tex' in dirset)) {
                 maps[i].file_exists = true;
               } else {
                 maps[i].file_exists = false;
