@@ -25,6 +25,7 @@ fi
 svnadmin create repos/"$1"
 
 echo "$2 = $3" >> repos/"$1"/conf/passwd
+ln -s ../repos/"$1"/conf/passwd passwd/"$1"
 sed -ri 's/#? *anon-access = .*/anon-access = none/;s/#? *password-db = .*/password-db = passwd/' repos/"$1"/conf/svnserve.conf
 
 svn co "file://`pwd`/repos/$1" checkouts/"$1"

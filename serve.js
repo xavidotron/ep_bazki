@@ -365,7 +365,6 @@ exports.expressCreateServer = function (hook_name, context, cb) {
   // /g/.../users
   exports.register_plain_url(
     context.app, 'users', function (project, info, res) {
-      var checkout = util.get_checkout(project);
       var message = '';
       if ('name' in info.body) {
         if (!info.body.name) {
@@ -375,8 +374,7 @@ exports.expressCreateServer = function (hook_name, context, cb) {
         } else {
           execFile(
             __dirname + "/bin/add-user.sh",
-            [info.body.name, info.body.password],
-            {'cwd': checkout},
+            [project, info.body.name, info.body.password],
             function (error, stdout, stderr) {
               if (error) { console.log('add-user', error, stderr); return; }
               res.redirect('/g/' + project + '/users');
@@ -385,8 +383,7 @@ exports.expressCreateServer = function (hook_name, context, cb) {
         }
       }
       execFile(
-        __dirname + "/bin/list-users.sh", [],
-        {'cwd': checkout},
+        __dirname + "/bin/list-users.sh", [project],
         function (error, stdout, stderr) {
           if (error) {
             console.log('users', error, stderr);
@@ -418,11 +415,9 @@ exports.expressCreateServer = function (hook_name, context, cb) {
     if (!('password' in req.body)) {
       res.render("login.ejs", {project: project});
     } else {
-      var checkout = util.get_checkout(project);
       execFile(
         __dirname + "/bin/check-password.sh",
-        [req.body.username, req.body.password],
-        {'cwd': checkout},
+        [project, req.body.username, req.body.password],
         function (error, stdout, stderr) {
           if (error) {
             console.log('password', error, stderr);

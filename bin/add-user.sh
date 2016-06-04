@@ -2,6 +2,4 @@
 
 set -e
 
-REPO="$(svn info | grep 'Repository Root' | cut -d '/' -f 3-)"
-
-echo "$1 = $2" >> "$REPO/conf/passwd"
+echo "$2 = $3" >> "passwd/$1"
