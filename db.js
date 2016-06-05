@@ -19,8 +19,11 @@ exports.pad_to_path = function (pad) {
 };
 
 exports.groupid_to_project = function (groupid) {
-  assert(groupid in groupid_to_project);
-  return groupid_to_project[groupid];
+  if (groupid in groupid_to_project) {
+    return groupid_to_project[groupid];
+  } else {
+    return null;
+  }
 }
 
 var groupid_to_project = {}
