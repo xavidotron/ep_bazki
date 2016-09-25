@@ -26,7 +26,7 @@ function usesTexFormatting(name) {
 // Ignore files that are binary or .git-type directories, because making pads
 // for them won't do anything useful and could mangle them.
 function shouldIgnoreFile(file) {
-  if (isBinaryPath(file) || /\..+\//.exec(file)) {
+  if (isBinaryPath(file) || /(^|\/)\..+\//.exec(file)) {
     return true;
   } else {
     return false;
