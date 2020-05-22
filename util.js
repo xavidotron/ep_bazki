@@ -307,7 +307,7 @@ exports.texToTaggedChars = function (str) {
     }
   }
 
-  var re = /^\\begin\{([a-zA-Z*]+)\}[\[\n]?|^\\end\{([a-zA-Z*]+)\}\n?|\\([a-zA-Z*]+|[^a-zA-Z*])\{|\\([^a-zA-Z*])|^(\\item ?)|[{}]|\]|\n *|[`'-]+/mg;
+  var re = /^\\begin\{([a-zA-Z*]+)\}[\[\n]?|^\\end\{([a-zA-Z*]+)\}\n?|\\([a-zA-Z*]+|[^a-zA-Z*])\{|\\([^a-zA-Z*])|(\\item ?)|[{}]|\]|\n *|[`'-]+/mg;
   var m;
   var stack = [];
   var last_point = 0;
@@ -361,6 +361,8 @@ exports.texToTaggedChars = function (str) {
         for (var i = 0; i < parseInt(ret[ret.length - 1].slice(2)); ++i) {
           ret.push(' ');
         } 
+      } else if (ret.length > 0 && ret[ret.length - 1][0] != '\n') {
+        ret.push('\n');
       }
       ret.push(tex_to_ltchar[list_stack[list_stack.length - 1][0]]
                + list_stack.length);

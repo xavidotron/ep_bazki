@@ -62,6 +62,14 @@ function setPadDataForPath(project, path, data, author, appendp,
     });
 }
 
+function svnOrGit(project) {
+  if (project == 'unsong') {
+    return 'git';
+  } else {
+    return 'svn';
+  }
+}
+
 exports.padUpdate = function (hook_name, context, cb) {
   var changed_pad = context.pad;
   var authorid = context.author;
@@ -106,6 +114,7 @@ exports.padUpdate = function (hook_name, context, cb) {
 }
 
 function writeAndAddFile(project, name, text, author) {
+  console.log('wAAF', project, name);
   pending_write = true;
   synchd(project, function (done) {
       fs.writeFile(util.get_checkout(project) + name, text, function (error) {
@@ -157,7 +166,7 @@ exports.mkdir = function (project, directory, author, callback) {
 exports.rm = function (project, path, author, callback) {
   var checkout = util.get_checkout(project);
   execFile(
-    '/usr/bin/svn', ['rm', '--force', path], {'cwd': checkout},
+    '/usr/bin/' + svnOrGit(project), ['rm', '--force', path], {'cwd': checkout},
     function (error, stdout, stderr) {
       if (!error) {
         if (!(project in pending_commits)) {
@@ -183,7 +192,8 @@ exports.mv = function (project, path, newpath, author, callback) {
       synchd(project, function (done) {
         var checkout = util.get_checkout(project);
         execFile(
-          '/usr/bin/svn', ['mv', path, newpath], {'cwd': checkout},
+          '/usr/bin/' + svnOrGit(project),
+          ['mv', path, newpath], {'cwd': checkout},
           function (error, stdout, stderr) {
             if (error) { done(); callback(error); return; }
             if (!(project in pending_commits)) {
@@ -231,7 +241,8 @@ function read_and_set_pad(project, path, ticker, force_pad_update, callback) {
           console.error("PROCESSING UPDATE", error);
         }
       } else {
-        setPadDataForPath(project, path, data, 'svn', false, force_pad_update);
+        setPadDataForPath(project, path, data, svnOrGit(project), false,
+                          force_pad_update);
       }
       if (ticker) {
         ticker.tick();
@@ -259,7 +270,7 @@ function svn_sync_locked(project, ticker, done) {
     delete pending_commits[project];
   }
   execFile(
-    __dirname + "/bin/svn-sync.sh", args,
+    __dirname + "/bin/" + svnOrGit(project) + "-sync.sh", args,
     {'cwd': checkout},
     function (error, stdout, stderr) {
       if (error) {
@@ -274,8 +285,12 @@ function svn_sync_locked(project, ticker, done) {
           }
           ++cnt;
           var mod = /^(.)    (.+)$/.exec(lines[i]);
-          if (!shouldIgnoreFile(mod[2])) {
+          if (mod && !shouldIgnoreFile(mod[2])) {
             q.defer(read_and_set_pad, project, mod[2], ticker, false);
+          }
+          var modgit = /^ (.+) \|[^|]+$/.exec(lines[i]);
+          if (modgit && !shouldIgnoreFile(modgit[1])) {
+            q.defer(read_and_set_pad, project, modgit[1], ticker, false);
           }
         }
         if (ticker) {
