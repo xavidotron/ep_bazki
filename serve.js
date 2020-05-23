@@ -40,10 +40,10 @@ function validateRequest(project, req, res, handler) {
   }
 
   var sessions = req.cookies.sessionID.split(',');
-  queue().defer(async.map, sessions, SessionManager.getSessionInfo)
-    .defer(db.get_groupid, project)
-    .await(function (error, session_infos, groupid) {
-      if (error) {
+  db.get_groupid(project).then((groupid) => {
+    
+    Promise.all(sessions.map(SessionManager.getSessionInfo)).then(function (session_infos) {
+      /*if (error) {
         if (error.message == 'sessionID does not exist') {
           res.clearCookie("sessionID");
           res.redirect('/g/' + project + '/login' + req.url);
@@ -53,7 +53,7 @@ function validateRequest(project, req, res, handler) {
           res.status(500).send(error);
         }
         return;
-      }
+      }*/
 
       var session_info = null;
       var valid_sessions = [];
@@ -79,13 +79,7 @@ function validateRequest(project, req, res, handler) {
       }
       
       AuthorManager.getAuthorName(
-        session_info.authorID, function (error, author) {
-          if (error) {
-            console.log("authorness", error);
-            res.status(500).send(error);
-            return;
-          }
-          
+        session_info.authorID).then(function (author) {
           res.locals.author = author;
           res.locals.authorid = session_info.authorID;
           res.locals.groupid = groupid;
@@ -104,6 +98,7 @@ function validateRequest(project, req, res, handler) {
           handler(res.locals, res);
         });
     });
+  })
 }
 
 exports.register_plain_url = function (app, controller, handler) {
@@ -412,9 +407,9 @@ exports.expressCreateServer = function (hook_name, context, cb) {
   // /g/.../login
   context.app.all(/^\/g\/([^\/]+)\/login(.*)$/, function (req, res) {
     var project = req.params[0];
-    if (!('password' in req.body)) {
+    if (!('password' in req.body)) { console.log('login page');
       res.render("login.ejs", {project: project});
-    } else {
+    } else {console.log('checking password');
       execFile(
         __dirname + "/bin/check-password.sh",
         [project, req.body.username, req.body.password],
@@ -424,17 +419,17 @@ exports.expressCreateServer = function (hook_name, context, cb) {
             res.render("login.ejs", {message: stderr || "Login failed.",
                                      project: project});
             return;
-          }
+          }console.log('here');
           var author = req.body.username;
-          queue().defer(db.get_groupid, project)
-            .defer(AuthorManager.createAuthorIfNotExistsFor, author, author)
-            .await(function (error, groupid, authordata) {
-              if (error) { console.log('prelogin', error); return; }
+          Promise.all([
+            db.get_groupid(project),
+            AuthorManager.createAuthorIfNotExistsFor(author, author),
+          ]).then(function (values) {
+            const [groupid, authordata] = values;
               SessionManager.createSession(
                 groupid, authordata.authorID,
-                Math.floor(new Date().getTime()/1000 + 7 * 24 * 60 * 60),
-                function (error, data) {
-                  if (error) { console.log('login', error); return; }
+                Math.floor(new Date().getTime()/1000 + 7 * 24 * 60 * 60)
+              ).then((data) => {
                   var new_cookie;
                   if (req.cookies.sessionID) {
                     new_cookie = req.cookies.sessionID + ','

@@ -35,31 +35,26 @@ function shouldIgnoreFile(file) {
 
 function setPadDataForPath(project, path, data, author, appendp,
                            force_pad_update, callback) {
-  queue().defer(db.get_project_pad, project, path)
-    .defer(AuthorManager.createAuthorIfNotExistsFor, author, author)
-    .await(function (error, pad, authordata) {
-      if (error) {
-        if (callback) {
-          callback(error);
-        } else {
-          console.log("setPadDataForPath", error);
-        }
-        return;
-      }
-      var updated;
-      // Do this for both .tex and .txt, so it roundtrips to SVN losslessly.
-      if (usesTexFormatting(path)) {
-        updated = db.setPadTex(pad, data, authordata['authorID'], appendp);
-      } else {
-        updated = db.setPadTxt(pad, data, authordata['authorID'], appendp);
-      } 
-      if (!updated && force_pad_update) {
-        exports.padUpdate(null, {pad: pad, author: authordata['authorID']},
-                          callback || function () {});
-      } else {
-        if (callback) { callback(); }
-      }
-    });
+  Promise.all([
+    db.get_project_pad(project, path),
+    AuthorManager.createAuthorIfNotExistsFor(author, author),
+  ]).then((values) => {
+    const [pad, authordata] = values;
+
+    var updated;
+    // Do this for both .tex and .txt, so it roundtrips to SVN losslessly.
+    if (usesTexFormatting(path)) {
+      updated = db.setPadTex(pad, data, authordata['authorID'], appendp);
+    } else {
+      updated = db.setPadTxt(pad, data, authordata['authorID'], appendp);
+    } 
+    if (!updated && force_pad_update) {
+      exports.padUpdate(null, {pad: pad, author: authordata['authorID']},
+                        callback || function () {});
+    } else {
+      if (callback) { callback(); }
+    }
+  });
 }
 
 function svnOrGit(project) {
@@ -104,8 +99,7 @@ exports.padUpdate = function (hook_name, context, cb) {
   }
   hooks.callAll('bazkiSavingPad', {name: name, text: text, author: authorid});
 
-  AuthorManager.getAuthorName(authorid, function (error, author) {
-    if (error) { console.log('authorness', error); return; }
+  AuthorManager.getAuthorName(authorid).then(function (author) {
     writeAndAddFile(project, filename, text, author);
   });
 
@@ -180,42 +174,42 @@ exports.rm = function (project, path, author, callback) {
 
 // Errors leave things in an inconsistent state.  "So don't hit errors."
 exports.mv = function (project, path, newpath, author, callback) {
-  queue().defer(db.get_project_pad, project, path)
-    .defer(db.get_project_pad, project, path, 'body')
-    .defer(db.get_project_pad, project, path, 'comment')
-    .defer(db.get_groupid, project)
-    .defer(AuthorManager.createAuthorIfNotExistsFor, author, author)
-    .await(function (error, oldpad, old_body, old_comment, group_id, 
-                     authordata) {
-      if (error) { callback(error); return; }
+  Promise.all([
+    db.get_project_pad(project, path),
+    db.get_project_pad(project, path, 'body'),
+    db.get_project_pad(project, path, 'comment'),
+    db.get_groupid(project),
+    AuthorManager.createAuthorIfNotExistsFor(author, author),
+  ]).then((values) => {
+    const [oldpad, old_body, old_comment, group_id, authordata] = values;
 
-      synchd(project, function (done) {
-        var checkout = util.get_checkout(project);
-        execFile(
-          '/usr/bin/' + svnOrGit(project),
-          ['mv', path, newpath], {'cwd': checkout},
-          function (error, stdout, stderr) {
-            if (error) { done(); callback(error); return; }
-            if (!(project in pending_commits)) {
-              pending_commits[project] = {};
-            }
-            pending_commits[project][path] = ['mv:' + newpath, author];  
-            
-            var new_id = group_id + '$' + util.path_to_padid(newpath);
-            // It'd be more like API.movePad to remove the old pad afterwards,
-            // but I'm all like, why bother.  This way, if something goes
-            // wrong, we're more likely to be able to recover.
-            queue().defer(oldpad.copy.bind(oldpad), new_id, 'true')
-              .defer(old_body.copy.bind(old_body), new_id + '~body', 'true')
-              .defer(old_comment.copy.bind(old_comment), new_id + '~comment', 
-                     'true')
-              .await(function (error) {
-                done();
-                callback(error);
-              });
-          });
-      });
+    synchd(project, function (done) {
+      var checkout = util.get_checkout(project);
+      execFile(
+        '/usr/bin/' + svnOrGit(project),
+        ['mv', path, newpath], {'cwd': checkout},
+        function (error, stdout, stderr) {
+          if (error) { done(); callback(error); return; }
+          if (!(project in pending_commits)) {
+            pending_commits[project] = {};
+          }
+          pending_commits[project][path] = ['mv:' + newpath, author];  
+          
+          var new_id = group_id + '$' + util.path_to_padid(newpath);
+          // It'd be more like API.movePad to remove the old pad afterwards,
+          // but I'm all like, why bother.  This way, if something goes
+          // wrong, we're more likely to be able to recover.
+          queue().defer(oldpad.copy.bind(oldpad), new_id, 'true')
+            .defer(old_body.copy.bind(old_body), new_id + '~body', 'true')
+            .defer(old_comment.copy.bind(old_comment), new_id + '~comment', 
+                   'true')
+            .await(function (error) {
+              done();
+              callback(error);
+            });
+        });
     });
+  });
 }
 
 exports.new_file = function (project, path, data, author, callback) {
@@ -332,9 +326,7 @@ function svn_read_all_locked(project, ticker, full_reset, done) {
       var thunk = read_and_set_pad.bind(null, project, files[i], ticker, true);
       if (full_reset) {
         q.defer(function (path, cb) {
-          db.get_project_pad(project, path, function (error, pad) {
-            if (error) { cb(error); return; }
-
+          db.get_project_pad(project, path).then(function ( pad) {
             pad.remove(function (error) {
               if (error) { cb(error); return; }
               thunk(cb);
@@ -350,11 +342,11 @@ function svn_read_all_locked(project, ticker, full_reset, done) {
 }
 
 exports.createSpecialPads = function (project, done) {
-  db.get_groupid(project, function (error, groupid) {
-    if (error) { done(error); return; }
-    queue().defer(PadManager.getPad, groupid + '$!chat', '')
-      .defer(PadManager.getPad, groupid + '$!status', '')
-      .await(done);
+  db.get_groupid(project).then(function (groupid) {
+    Promise.all([
+      PadManager.getPad(groupid + '$!chat', ''),
+      PadManager.getPad(groupid + '$!status', ''),
+    ]).then(done);
   });
 }
 

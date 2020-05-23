@@ -3,7 +3,7 @@ var regexpEscape = require('escape-regexp');
 var startsWith = require("underscore.string/startsWith");
 var endsWith = require("underscore.string/endsWith");
 var queue = require("queue-async");
-var assert = require('assert');
+const assert = require('assert').strict;
 var yaml = require('js-yaml');
 var deepEqual = require('deep-equal');
 
@@ -28,54 +28,36 @@ exports.groupid_to_project = function (groupid) {
 
 var groupid_to_project = {}
 
-exports.get_groupid = function (project, callback) {
-  GroupManager.createGroupIfNotExistsFor(
-    project, function (error, data) {
-      if (error) { callback(error); return; }
-      groupid_to_project[data.groupID] = project;
-      callback(null, data.groupID);
-    });
+exports.get_groupid = async function (project, callback) {
+  assert(!callback);
+  let data = await GroupManager.createGroupIfNotExistsFor(project);
+  groupid_to_project[data.groupID] = project;
+  return data.groupID;
 }
 
-exports.get_project_pad = function(project, path, subid, callback) {
+exports.get_project_pad = async function(project, path, subid, callback) {
+  assert(!callback);
   // subid is optional.
-  if (callback == null) {
-    callback = subid;
-    subid = '';
-  } else if (subid) {
+  if (subid) {
+    assert.equal(typeof subid, 'string');
     subid = '~' + subid;
   } else {
     subid = '';
   }
-  exports.get_groupid(project, function (error, groupid) {
-    if (error) { callback(error); return; }
-    var partial_padid = util.path_to_padid(path) + subid;
-    var full_padid = groupid + '$' + partial_padid;
-    PadManager.doesPadExists(full_padid, function (error, exists) {
-      if (error) { callback(error); return; }
+  let groupid = await exports.get_groupid(project);
+  var partial_padid = util.path_to_padid(path) + subid;
+  var full_padid = groupid + '$' + partial_padid;
+  let exists = await PadManager.doesPadExist(full_padid);
+    
+  if (!exists) {
+    // Create via GroupManager so that we get it associated with the group
+    // in the DB.
+    await GroupManager.createGroupPad(groupid, partial_padid, '')
+  }
 
-      var thunk = function () {
-        PadManager.getPad(full_padid, '', function (error, pad) {
-          if (error) { callback(error); return; }
-          
-          pad.path = path;
-          callback(null, pad)
-        });
-      };
-
-      if (exists) {
-        thunk();
-      } else {
-        // Create via GroupManager so that we get it associated with the group
-        // in the DB.
-        GroupManager.createGroupPad(
-          groupid, partial_padid, '', function (error) {
-            if (error) { callback(error); return; }
-            thunk();
-          });
-      }
-    });
-  });
+  let pad = await PadManager.getPad(full_padid, '');
+  pad.path = path;
+  return pad;
 }
 
 exports.macroForPad = function (project, pad) {
@@ -174,121 +156,110 @@ function parseFields(entry, subs, onsub) {
   return parsed;
 }
 
-function parseFieldsForMacro(project, list, macro, subs, authorid, callback) {
-  exports.get_project_pad(
-    project, list,
-    function (error, list_pad) {
-      if (error) { callback(error); return; }
+async function parseFieldsForMacro(project, list, macro, subs, authorid, callback) {
+  assert(!callback);
+  const list_pad = await exports.get_project_pad(project, list);
 
-      var data = list_pad.atext.text;      
-      var re = new RegExp('^( *\\\\NEW\\{)([^}]+)(\\}\\{' + regexpEscape(macro)
-                          + '\\}\\{)', 'gm');
-      var m2 = re.exec(data);
-      
-      if (m2) {
-        if (subs && 'type' in subs) {
-          var changeset = util.makeReplaceChangeset(
-            data, m2.index, m2[0].length, m2[1] + subs.type + m2[3]);
-          list_pad.appendRevision(changeset, authorid);
-          PadMessageHandler.updatePadClients(list_pad, function () {});
-          // This works but is a confusing contract.
-          callback(null, true);
-          return;
-        }
-
-        var parsed = parseFields(
-          data.slice(re.lastIndex), subs,
-          function (start, len, newv) {
-            var changeset = util.makeReplaceChangeset(
-              data, re.lastIndex + start, len, newv);
-            list_pad.appendRevision(changeset, authorid);
-            PadMessageHandler.updatePadClients(list_pad, function () {});
-          });
-        if (parsed) {
-          parsed = [['type', m2[2]]].concat(parsed);
-        }
-        callback(null, parsed);
-      } else {
-        callback(null, null);
-      }
-    });
+  var data = list_pad.atext.text;      
+  var re = new RegExp('^( *\\\\NEW\\{)([^}]+)(\\}\\{' + regexpEscape(macro)
+                      + '\\}\\{)', 'gm');
+  var m2 = re.exec(data);
+  
+  if (m2) {
+    if (subs && 'type' in subs) {
+      var changeset = util.makeReplaceChangeset(
+        data, m2.index, m2[0].length, m2[1] + subs.type + m2[3]);
+      list_pad.appendRevision(changeset, authorid);
+      PadMessageHandler.updatePadClients(list_pad, function () {});
+      // This works but is a confusing contract.
+      return true;
+    }
+    
+    var parsed = parseFields(
+      data.slice(re.lastIndex), subs,
+      function (start, len, newv) {
+        var changeset = util.makeReplaceChangeset(
+          data, re.lastIndex + start, len, newv);
+        list_pad.appendRevision(changeset, authorid);
+        PadMessageHandler.updatePadClients(list_pad, function () {});
+      });
+    if (parsed) {
+      parsed = [['type', m2[2]]].concat(parsed);
+    }
+    return parsed;
+  } else {
+    return null;
+  }
 }
 
-exports.mapEntriesFromList = function (project, list, callback) {
+exports.mapEntriesFromList = async function (project, list, callback) {
+  assert(!callback);
   var field_set = {};
-  exports.get_project_pad(
-    project, list,
-    function (error, list_pad) {
-      if (error) { callback(error); return; }
+  const list_pad = exports.get_project_pad(project, list);
 
-      var data = list_pad.atext.text;
-      var re = new RegExp('^ *\\\\(?:NEW\\{([^}]+)\\}|updatemacro)\\{(\\\\[a-zA-Z]+)\\}\\{',
-                          'gm');
-      var m;
-      var maps = [];
-      while ((m = re.exec(data))) {
-        console.log(m[0], m[2]);
-        var parsed = parseFields(data.slice(re.lastIndex));
-        var map = {};
-        for (var i = 0; i < parsed.length; ++i) {
-          map[parsed[i][0]] = parsed[i][1];
-          field_set[parsed[i][0]] = true;
+  var data = list_pad.atext.text;
+  var re = new RegExp('^ *\\\\(?:NEW\\{([^}]+)\\}|updatemacro)\\{(\\\\[a-zA-Z]+)\\}\\{',
+                      'gm');
+  var m;
+  var maps = [];
+  while ((m = re.exec(data))) {
+    console.log(m[0], m[2]);
+    var parsed = parseFields(data.slice(re.lastIndex));
+    var map = {};
+    for (var i = 0; i < parsed.length; ++i) {
+      map[parsed[i][0]] = parsed[i][1];
+      field_set[parsed[i][0]] = true;
+    }
+    map.macro = m[2];
+    map.type = m[1];
+    map.list = list;
+    if (map.file) {
+      map.path = util.directoryForClass(project,
+                                        util.classForList(list)) + map.file;
+      if (!/\.[^/]+$/.exec(map.file)) {
+        map.path += '.tex';
+      }
+    }
+    maps.push(map);
+  };
+
+  var dir = util.directoryForClass(project, util.classForList(list));
+  // Not all lists correspond to a directory of files, so this may be null.
+  if (dir) {
+    fs.readdir(
+      util.get_checkout(project) + dir,
+      function (error, contents) {
+        if (error) { callback(error); return; }
+        
+        var dirset = {};
+        for (var i = 0; i < contents.length; ++i) {
+          dirset[contents[i]] = true;
         }
-        map.macro = m[2];
-        map.type = m[1];
-        map.list = list;
-        if (map.file) {
-          map.path = util.directoryForClass(project,
-                                            util.classForList(list)) + map.file;
-          if (!/\.[^/]+$/.exec(map.file)) {
-            map.path += '.tex';
+        for (var i = 0; i < maps.length; ++i) {
+          if (maps[i].file && (maps[i].file in dirset
+                               || maps[i].file + '.tex' in dirset)) {
+            maps[i].file_exists = true;
+          } else {
+            maps[i].file_exists = false;
           }
         }
-        maps.push(map);
-      };
-
-      var dir = util.directoryForClass(project, util.classForList(list));
-      // Not all lists correspond to a directory of files, so this may be null.
-      if (dir) {
-        fs.readdir(
-          util.get_checkout(project) + dir,
-          function (error, contents) {
-            if (error) { callback(error); return; }
-            
-            var dirset = {};
-            for (var i = 0; i < contents.length; ++i) {
-              dirset[contents[i]] = true;
-            }
-            for (var i = 0; i < maps.length; ++i) {
-              if (maps[i].file && (maps[i].file in dirset
-                                   || maps[i].file + '.tex' in dirset)) {
-                maps[i].file_exists = true;
-              } else {
-                maps[i].file_exists = false;
-              }
-            }
-
-            callback(null, maps, Object.keys(field_set));
-          });
-      } else {
-        callback(null, maps, Object.keys(field_set));
-      }
-    });
+        
+        return [maps, Object.keys(field_set)];
+      });
+  } else {
+    return [maps, Object.keys(field_set)];
+  }
 };
 
-function getMapYaml(project, path, callback) {
-  exports.get_project_pad(
-    project, path,
-    function (error, pad) {
-      if (error) {
-        callback(error);
-      } else {
-        var data = yaml.safeLoad(pad.atext.text);
-        data.path = path.replace(/\.yaml$/, '.tex');
-        data.file = /[^\/]*$/.exec(data.path)[0];
-        callback(null, data);
-      }
-    });
+async function getMapYaml(project, path, callback) {
+  assert(!callback);
+  const pad =exports.get_project_pad(
+    project, path);
+
+  var data = yaml.safeLoad(pad.atext.text);
+  data.path = path.replace(/\.yaml$/, '.tex');
+  data.file = /[^\/]*$/.exec(data.path)[0];
+  return data;
 }
 
 exports.mapYamlFromDirectory = function (project, dir, callback) {
@@ -387,53 +358,51 @@ exports.updateMetadataForPad = function (project, pad) {
 
 exports.refreshMetadataForProject = function (project) {
   for (var padid in METADATA_LISTENERS[project]) {
-    PadManager.getPad(padid, '', function (error, pad) {
-      if (error) { console.log('refreshMetadataForProject', error); return; }
-      
+    PadManager.getPad(padid, '').then((pad) => {
       exports.updateMetadataForPad(project, pad);
     });
   }
 }
 
-exports.refreshMapEntriesForList = function (project, list) {
-  queue().defer(exports.mapEntriesFromList, project, list)
-    .defer(exports.get_groupid, project)
-    .await(function (error, maps, group_id) {
-      if (error) { console.error('refreshMapEntriesForList', error); return; }
+exports.refreshMapEntriesForList = async function (project, list, callback) {
+  assert(!callback);
+  const [maps, group_id] = await Promise.all([
+    exports.mapEntriesFromList(project, list),
+    exports.get_groupid(project),
+  ]);
       
-      var msg = {
-        type: "COLLABROOM",
-        data: {
-          type: "CUSTOM",
-          payload: {
-            padId: group_id + '$!status',
-            list: list,
-            maps: maps,
-          },
-        }
-      };
-      PadMessageHandler.handleCustomObjectMessage(msg, null, function(){});
-    });
+  var msg = {
+    type: "COLLABROOM",
+    data: {
+      type: "CUSTOM",
+      payload: {
+        padId: group_id + '$!status',
+        list: list,
+        maps: maps,
+      },
+    }
+  };
+  PadMessageHandler.handleCustomObjectMessage(msg, null, function(){});
 }
 
-exports.refreshMapYaml = function (project, path) {
-  queue().defer(getMapYaml, project, path)
-    .defer(exports.get_groupid, project)
-    .await(function (error, map, group_id) {
-      if (error) { console.error('refreshMapEntriesYaml', error); return; }
+exports.refreshMapYaml = async function (project, path, callback) {
+  assert(!callback);
+  const [map, group_id] = await Promise.all([
+    getMapYaml(project, path),
+    exports.get_groupid(project),
+  ]);
       
-      var msg = {
-        type: "COLLABROOM",
-        data: {
-          type: "CUSTOM",
-          payload: {
-            padId: group_id + '$!status',
-            maps: [map],
-          },
-        }
-      };
-      PadMessageHandler.handleCustomObjectMessage(msg, null, function(){});
-    });
+  var msg = {
+    type: "COLLABROOM",
+    data: {
+      type: "CUSTOM",
+      payload: {
+        padId: group_id + '$!status',
+        maps: [map],
+      },
+    }
+  };
+  PadMessageHandler.handleCustomObjectMessage(msg, null, function(){});
 }
 
 exports.setMacroMetadata = function (project, list, macro, key, value, authorid) {
@@ -449,20 +418,18 @@ exports.setMacroMetadata = function (project, list, macro, key, value, authorid)
     });
 }
 
-exports.setFileMetadata = function (project, path, key, value, authorid) {
-  exports.get_project_pad(
-    project, path.replace(/\.tex$/, '.yaml'),
-    function (error, pad) {
-      if (error) { console.log('setFileMetadata', error); return; }
+exports.setFileMetadata = async function (project, path, key, value, authorid, callback) {
+  assert(!callback);
+  const pad = await exports.get_project_pad(
+    project, path.replace(/\.tex$/, '.yaml'));
 
-      var md = yaml.safeLoad(pad.atext.text);
-      if (md == null) {
-        md = {};
-      }
-      md[key] = value;
-      var new_yaml = yaml.safeDump(md);console.log('d', new_yaml);
-      exports.setPadTxt(pad, new_yaml, authorid);console.log('e');
-    });
+  var md = yaml.safeLoad(pad.atext.text);
+  if (md == null) {
+    md = {};
+  }
+  md[key] = value;
+  var new_yaml = yaml.safeDump(md);console.log('d', new_yaml);
+  exports.setPadTxt(pad, new_yaml, authorid);console.log('e');
 }
 
 var under_setPad = false;
